@@ -11,31 +11,42 @@ pub fn read_credential() -> Result<Credential, Error> {
     Ok(claim)
 }
 
-// take a DID string and return the account id of it
-pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
+// did should contain two colons `:` and one hashtag `#`
+// i.e. "did:kilt:1234#0x1234"
+fn get_did_parts(did: &str) -> Result<Vec<&str>, Error> {
     let did_parts: Vec<&str> = did.split(':').collect();
     if did_parts.len() != 3 {
-        return Err(Error::InvalidDid);
+        Err(Error::InvalidDid)
+    } else {
+        Ok(did_parts)
     }
-    let parts: Vec<&str> = did_parts[2].split('#').collect();
-    AccountId32::from_ss58check(parts[0]).map_err(|_| Error::InvalidDid)
+}
+
+// take a DID string and return the account id of it
+pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
+    let did_parts = get_did_parts(did)?;
+    did_parts[2]
+        .split('#')
+        .nth(0)
+        .map(|id| AccountId32::from_ss58check(id))
+        .expect("DID should contain # char")
+        .map_err(|_| Error::InvalidDid)
+        .into()
 }
 
 // take a key uri string and return the key id of it
 // i.e. "did:kilt:1234#0x1234" -> [1,2,3,4]
 pub fn get_did_key_id(did: &str) -> Result<H256, Error> {
-    let did_parts: Vec<&str> = did.split(':').collect();
-    if did_parts.len() != 3 {
-        return Err(Error::InvalidDid);
-    }
+    let did_parts = get_did_parts(did)?;
+
     let parts: Vec<&str> = did_parts[2].split('#').collect();
     if parts.len() != 2 {
-        return Err(Error::InvalidDid);
+        Err(Error::InvalidDid)
+    } else {
+        Ok(H256(
+            hex::decode(&parts[1][2..])?
+                .try_into()
+                .map_err(|_| Error::InvalidDid)?,
+        ))
     }
-    let key_id = H256(
-        hex::decode(&parts[1][2..])?
-            .try_into()
-            .map_err(|_| Error::InvalidDid)?,
-    );
-    Ok(key_id)
 }

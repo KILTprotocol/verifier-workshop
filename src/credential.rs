@@ -12,12 +12,12 @@ use crate::{
         },
         KiltRuntimeApi,
     },
-    utils::*,
+    utils::{get_did_account_id, get_did_key_id},
 };
 
 type Blake2b256 = Blake2b<U32>;
 
-// top-level structure of a credential
+// Top-level structure of a credential
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Credential {
     #[serde(rename = "claim")]
@@ -32,7 +32,7 @@ pub struct Credential {
     pub root_hash: String,
 }
 
-// the claim holds the actual data that is attested
+// The claim holds the actual data that is attested
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Claim {
     #[serde(rename = "cTypeHash")]
@@ -43,7 +43,7 @@ pub struct Claim {
     pub owner: String,
 }
 
-// the claimer signature proofs that the owner of the claim signed the claim
+// The claimer signature proofs that the owner of the claim signed the claim
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ClaimerSignature {
     pub signature: String,
@@ -54,15 +54,13 @@ pub struct ClaimerSignature {
 impl Credential {
     // This will check all disclosed contents against the hashes given in the credential
     pub fn check_claim_contents(&self) -> Result<(), Error> {
-        // first we need to normalize the owner and the contents
-        let mut normalized_parts = vec![];
-
-        // add owner field like `{"@id":"did:kilt:12345"}`
+        // We need to normalize the owner and the contents
+        // First add owner field like `{"@id":"did:kilt:12345"}`
         let mut owner_map = serde_json::Map::new();
         owner_map.insert("@id".into(), self.claim.owner.clone().into());
-        normalized_parts.push(serde_json::to_string(&owner_map)?);
+        let mut normalized_parts = vec![serde_json::to_string(&owner_map)?];
 
-        // now add for every toplevel entry in the contents one object like this:
+        // Now add for every toplevel entry in the contents one object like this:
         // `{"kilt:ctype:12345#Email":"foo@bar.com"}`
         self.claim
             .contents
@@ -77,21 +75,20 @@ impl Credential {
                 Ok(())
             })?;
 
-        // at this point we can calculate the hashes of the normalized statements using blake2b256
+        // At this point we can calculate the hashes of the normalized statements using blake2b256
         let hashes = normalized_parts
             .iter()
             .map(|part| -> String {
                 let part = part.as_str();
                 let mut hasher = Blake2b256::new();
                 hasher.update(part);
-                let hash = hasher.finalize();
-                let res = hex::encode(hash.as_slice());
+                let res = hex::encode(hasher.finalize().as_slice());
                 format!("0x{}", res)
             })
             .collect::<Vec<String>>();
 
-        // each of these hashes should have a corresponding nonce in the nonce map
-        // and the nonce hashed together with the hash should be listed in the claim_hashes of the credential
+        // Each of these hashes should have a corresponding nonce in the nonce map
+        // And the nonce hashed together with the hash should be listed in the claim_hashes of the credential
         hashes.iter().try_for_each(|hash| -> Result<(), Error> {
             let nonce = self
                 .claim_nonce_map
@@ -102,34 +99,37 @@ impl Credential {
             hasher.update(hash);
             let hash = format!("0x{}", hex::encode(hasher.finalize().as_slice()));
             if !self.claim_hashes.contains(&hash) {
-                return Err(Error::InvalidClaimContents);
+                Err(Error::InvalidClaimContents)
+            } else {
+                Ok(())
             }
-            Ok(())
         })?;
 
-        // claims are valid if we get here!
+        // Claims are valid if we get here!
         Ok(())
     }
 
-    // hashing the claim-hashes together should result in the root hash of the credential
+    // Hashing the claim-hashes together should result in the root hash of the credential
     pub fn check_root_hash(&self) -> Result<(), Error> {
         let mut hasher = Blake2b256::new();
         for hash in self.claim_hashes.iter() {
             let data = hex::decode(&hash[2..])?;
             hasher.update(&data);
         }
+
         let root_hash = format!("0x{}", hex::encode(hasher.finalize().as_slice()));
         if root_hash != self.root_hash {
-            return Err(Error::InvalidRootHash);
+            Err(Error::InvalidRootHash)
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
-    // the signature of the credential is checked against the public key of the owner
+    // The signature of the credential is checked against the public key of the owner
     pub async fn check_signature(&self, cli: &KiltRuntimeApi) -> Result<(), Error> {
         let owner = get_did_account_id(self.claim.owner.as_str())?;
 
-        // lookup DID doc on chain
+        // Lookup DID doc on chain
         let did_doc = cli
             .storage()
             .did()
@@ -137,7 +137,7 @@ impl Credential {
             .await?
             .ok_or(Error::DidNotFound)?;
 
-        // get the public verification key of the owner from the DID doc
+        // Get the public verification key of the owner from the DID doc
         let did_key_id = get_did_key_id(&self.claimer_signature.key_id)?;
         let details = &did_doc
             .public_keys
@@ -147,7 +147,7 @@ impl Credential {
             .ok_or(Error::InvalidDid)?
             .1;
 
-        // make sure the public key is a sr25519 public verification key and check the signature
+        // Make sure the public key is a sr25519 public verification key and check the signature
         match &details.key {
             PublicVerificationKey(DidVerificationKey::Sr25519(key)) => {
                 let pub_key = subxt::sp_core::sr25519::Public::from_raw(key.0);
@@ -157,18 +157,18 @@ impl Credential {
                         .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
                 );
                 let msg = hex::decode(&self.root_hash.as_bytes()[2..])?;
-                let ok = pub_key.verify(&msg, &sig);
-                if !ok {
-                    return Err(Error::InvalidSignature);
+
+                if pub_key.verify(&msg, &sig) {
+                    Ok(())
+                } else {
+                    Err(Error::InvalidSignature)
                 }
             }
-            _ => return Err(Error::InvalidDid),
-        };
-
-        Ok(())
+            _ => Err(Error::InvalidDid),
+        }
     }
 
-    // finally we need to check if the root hash is ok:
+    // Finally we need to check if the root hash is ok:
     // - it's written to chain
     // - the attestation is not revoked
     // - we trust the attester
@@ -177,14 +177,14 @@ impl Credential {
         cli: &KiltRuntimeApi,
         allowed_issuers: &[&str],
     ) -> Result<(), Error> {
-        // get the raw root hash
+        // Get the raw root hash
         let hash = subxt::sp_core::H256(
             hex::decode(&self.root_hash.as_bytes()[2..])?
                 .try_into()
                 .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
         );
 
-        // retrieve the attestation from chain
+        // Retrieve the attestation from chain
         let attestation = cli
             .storage()
             .attestation()
@@ -192,22 +192,23 @@ impl Credential {
             .await?
             .ok_or(Error::AttestationNotFound)?;
 
-        // check if it has been revoked by the issuer
+        // Check if it has been revoked by the issuer
         if attestation.revoked {
-            return Err(Error::AttestationRevoked);
+            Err(Error::AttestationRevoked)
+        } else {
+            // Build the attester DID string to check against the allowed issuers
+            let attester = format!(
+                "did:kilt:{}",
+                attestation
+                    .attester
+                    .to_ss58check_with_version(Ss58AddressFormat::custom(38))
+            );
+            if !allowed_issuers.contains(&attester.as_str()) {
+                Err(Error::InvalidIssuer)
+            } else {
+                Ok(())
+            }
         }
-
-        // build the attester DID string to check against the allowed issuers
-        let attester = format!(
-            "did:kilt:{}",
-            attestation
-                .attester
-                .to_ss58check_with_version(Ss58AddressFormat::custom(38))
-        );
-        if !allowed_issuers.contains(&attester.as_str()) {
-            return Err(Error::InvalidIssuer);
-        }
-        Ok(())
     }
 }
 
