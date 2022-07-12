@@ -57,7 +57,7 @@ mod tests {
             .await
             // no network error
             .expect("Should connect with runtime API")
-            // unwrap the owner option -> proof that it exists
+            // proof that owner exists and is johndoe
             .expect("Should match owner with johndoe");
 
         let owner = format!(
