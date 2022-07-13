@@ -69,11 +69,4 @@ mod tests {
         assert_eq!(expected_did, owner);
     }
 
-    #[tokio::test]
-    async fn serialize_stuff() {
-        let call = kilt::web3_names::calls::Claim {
-            name: BoundedVec(String::from("johndoe").as_bytes().to_vec()),
-        };
-        println!("Call: {:#?}", call);
-    }
 }

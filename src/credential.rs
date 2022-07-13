@@ -12,7 +12,7 @@ use crate::{
         },
         KiltRuntimeApi,
     },
-    utils::{get_did_account_id, get_did_key_id},
+    utils::{get_did_account_id, get_did_key_id, hex_decode, hex_encode},
 };
 
 type Blake2b256 = Blake2b<U32>;
@@ -79,11 +79,9 @@ impl Credential {
         let hashes = normalized_parts
             .iter()
             .map(|part| -> String {
-                let part = part.as_str();
                 let mut hasher = Blake2b256::new();
-                hasher.update(part);
-                let res = hex::encode(hasher.finalize().as_slice());
-                format!("0x{}", res)
+                hasher.update(part.as_str());
+                hex_encode(&hasher.finalize())
             })
             .collect::<Vec<String>>();
 
@@ -97,7 +95,7 @@ impl Credential {
             let mut hasher = Blake2b256::new();
             hasher.update(nonce);
             hasher.update(hash);
-            let hash = format!("0x{}", hex::encode(hasher.finalize().as_slice()));
+            let hash = hex_encode(&hasher.finalize());
             if !self.claim_hashes.contains(&hash) {
                 Err(Error::InvalidClaimContents)
             } else {
@@ -113,11 +111,11 @@ impl Credential {
     pub fn check_root_hash(&self) -> Result<(), Error> {
         let mut hasher = Blake2b256::new();
         for hash in self.claim_hashes.iter() {
-            let data = hex::decode(&hash[2..])?;
+            let data = hex_decode(&hash)?;
             hasher.update(&data);
         }
 
-        let root_hash = format!("0x{}", hex::encode(hasher.finalize().as_slice()));
+        let root_hash = hex_encode(&hasher.finalize());
         if root_hash != self.root_hash {
             Err(Error::InvalidRootHash)
         } else {
@@ -152,11 +150,11 @@ impl Credential {
             PublicVerificationKey(DidVerificationKey::Sr25519(key)) => {
                 let pub_key = subxt::sp_core::sr25519::Public::from_raw(key.0);
                 let sig = subxt::sp_core::sr25519::Signature::from_raw(
-                    hex::decode(&self.claimer_signature.signature.as_bytes()[2..])?
+                    hex_decode(&self.claimer_signature.signature)?
                         .try_into()
                         .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
                 );
-                let msg = hex::decode(&self.root_hash.as_bytes()[2..])?;
+                let msg = hex_decode(&self.root_hash)?;
 
                 if pub_key.verify(&msg, &sig) {
                     Ok(())
@@ -179,7 +177,7 @@ impl Credential {
     ) -> Result<(), Error> {
         // Get the raw root hash
         let hash = subxt::sp_core::H256(
-            hex::decode(&self.root_hash.as_bytes()[2..])?
+            hex_decode(&self.root_hash)?
                 .try_into()
                 .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
         );

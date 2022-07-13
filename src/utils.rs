@@ -50,3 +50,17 @@ pub fn get_did_key_id(did: &str) -> Result<H256, Error> {
         ))
     }
 }
+
+pub fn hex_encode<T>(data: T) -> String
+where
+    T: AsRef<[u8]>,
+{
+    format!("0x{}", hex::encode(data.as_ref()))
+}
+
+pub fn hex_decode<T>(data: T) -> Result<Vec<u8>, Error> 
+where
+    T: ToString,
+{
+    Ok(hex::decode(data.to_string().trim_start_matches("0x"))?.to_vec())
+}
