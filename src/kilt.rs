@@ -7,8 +7,8 @@ pub mod kilt {}
 // Re-export all the auto generated code
 pub use kilt::*;
 
-// This is the runtime config for KILT.
-// It only differs in the Index type from the default
+/// This is the runtime config for KILT.
+/// It only differs in the Index type from the default
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct KiltConfig;
 impl Config for KiltConfig {
@@ -68,5 +68,4 @@ mod tests {
         let expected_did = "did:kilt:4q8mf6k3k8aqiMaSVGy4WK7oqeu4kqVsNwchXb93UjVsEwHi";
         assert_eq!(expected_did, owner);
     }
-
 }

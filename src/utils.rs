@@ -26,14 +26,15 @@ fn get_did_parts(did: &str) -> Result<Vec<&str>, Error> {
 pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
     let did_parts = get_did_parts(did)?;
     did_parts[2]
-        .split('#').next()
+        .split('#')
+        .next()
         .map(AccountId32::from_ss58check)
-        .expect("DID should contain # char")
+        .expect("did should be non empty")
         .map_err(|_| Error::InvalidDid)
 }
 
 // take a key uri string and return the key id of it
-// i.e. "did:kilt:1234#0x1234" -> [1,2,3,4]
+// i.e. "did:kilt:1234#0x05060708" -> [5,6,7,8]
 pub fn get_did_key_id(did: &str) -> Result<H256, Error> {
     let did_parts = get_did_parts(did)?;
 
@@ -49,6 +50,7 @@ pub fn get_did_key_id(did: &str) -> Result<H256, Error> {
     }
 }
 
+// hex encoding helper which adds '0x' as a prefix
 pub fn hex_encode<T>(data: T) -> String
 where
     T: AsRef<[u8]>,
@@ -56,9 +58,59 @@ where
     format!("0x{}", hex::encode(data.as_ref()))
 }
 
-pub fn hex_decode<T>(data: T) -> Result<Vec<u8>, Error> 
+// hex decoding helper which strips '0x' as a prefix
+pub fn hex_decode<T>(data: T) -> Result<Vec<u8>, Error>
 where
     T: ToString,
 {
     Ok(hex::decode(data.to_string().trim_start_matches("0x"))?.to_vec())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_get_did_parts() {
+        let did = "did:kilt:4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH#0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d";
+        let did_parts = get_did_parts(did).unwrap();
+        assert_eq!(did_parts[0], "did");
+        assert_eq!(did_parts[1], "kilt");
+        assert_eq!(did_parts[2], "4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH#0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d");
+    }
+
+    #[test]
+    fn test_get_did_account_id() {
+        let did = "did:kilt:4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH";
+        let account_id = get_did_account_id(did).unwrap();
+        assert_eq!(
+            account_id,
+            AccountId32::from_ss58check("4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH")
+                .unwrap()
+        );
+
+        let did = "did:kilt:4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH#0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d";
+        let account_id = get_did_account_id(did).unwrap();
+        assert_eq!(
+            account_id,
+            AccountId32::from_ss58check("4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_did_key_id() {
+        let did = "did:kilt:4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH#0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d";
+        let key_id = get_did_key_id(did).unwrap();
+        assert_eq!(
+            key_id.0,
+            H256(
+                hex_decode("0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d")
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            )
+            .0
+        );
+    }
 }

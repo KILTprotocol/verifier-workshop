@@ -17,7 +17,7 @@ use crate::{
 
 type Blake2b256 = Blake2b<U32>;
 
-// Top-level structure of a credential
+/// Top-level structure of a credential
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Credential {
     #[serde(rename = "claim")]
@@ -32,7 +32,7 @@ pub struct Credential {
     pub root_hash: String,
 }
 
-// The claim holds the actual data that is attested
+/// The claim holds the actual data that is attested
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Claim {
     #[serde(rename = "cTypeHash")]
@@ -43,7 +43,7 @@ pub struct Claim {
     pub owner: String,
 }
 
-// The claimer signature proofs that the owner of the claim signed the claim
+/// The claimer signature proofs that the owner of the claim signed the claim
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ClaimerSignature {
     pub signature: String,
@@ -52,13 +52,14 @@ pub struct ClaimerSignature {
 }
 
 impl Credential {
-    // This will check all disclosed contents against the hashes given in the credential
+    /// This will check all disclosed contents against the hashes given in the credential
     pub fn check_claim_contents(&self) -> Result<(), Error> {
         // We need to normalize the owner and the contents
-        // First add owner field like `{"@id":"did:kilt:12345"}`
-        let mut owner_map = serde_json::Map::new();
-        owner_map.insert("@id".into(), self.claim.owner.clone().into());
-        let mut normalized_parts = vec![serde_json::to_string(&owner_map)?];
+        let mut normalized_parts = vec![];
+
+        // First add the owner field like `{"@id":"did:kilt:12345"}`
+        let owner_map = serde_json::json!({"@id": self.claim.owner.clone()});
+        normalized_parts.push(serde_json::to_string(&owner_map)?);
 
         // Now add for every toplevel entry in the contents one object like this:
         // `{"kilt:ctype:12345#Email":"foo@bar.com"}`
@@ -86,7 +87,7 @@ impl Credential {
             .collect::<Vec<String>>();
 
         // Each of these hashes should have a corresponding nonce in the nonce map
-        // And the nonce hashed together with the hash should be listed in the claim_hashes of the credential
+        // The nonce hashed together with the hash should be listed in the claim_hashes of the credential
         hashes.iter().try_for_each(|hash| -> Result<(), Error> {
             let nonce = self
                 .claim_nonce_map
@@ -95,8 +96,8 @@ impl Credential {
             let mut hasher = Blake2b256::new();
             hasher.update(nonce);
             hasher.update(hash);
-            let hash = hex_encode(&hasher.finalize());
-            if !self.claim_hashes.contains(&hash) {
+            let salted_hash = hex_encode(&hasher.finalize());
+            if !self.claim_hashes.contains(&salted_hash) {
                 Err(Error::InvalidClaimContents)
             } else {
                 Ok(())
@@ -107,7 +108,7 @@ impl Credential {
         Ok(())
     }
 
-    // Hashing the claim-hashes together should result in the root hash of the credential
+    /// Hashing the claim-hashes together should result in the root hash of the credential
     pub fn check_root_hash(&self) -> Result<(), Error> {
         let mut hasher = Blake2b256::new();
         for hash in self.claim_hashes.iter() {
@@ -123,7 +124,7 @@ impl Credential {
         }
     }
 
-    // The signature of the credential is checked against the public key of the owner
+    /// The signature of the credential is checked against the public key of the owner
     pub async fn check_signature(&self, cli: &KiltRuntimeApi) -> Result<(), Error> {
         let owner = get_did_account_id(self.claim.owner.as_str())?;
 
@@ -166,10 +167,10 @@ impl Credential {
         }
     }
 
-    // Finally we need to check if the root hash is ok:
-    // - it's written to chain
-    // - the attestation is not revoked
-    // - we trust the attester
+    /// Finally we need to check if the root hash is ok:
+    /// - it's written to chain
+    /// - the attestation is not revoked
+    /// - we trust the attester
     pub async fn check_attestation(
         &self,
         cli: &KiltRuntimeApi,
@@ -201,10 +202,10 @@ impl Credential {
                     .attester
                     .to_ss58check_with_version(Ss58AddressFormat::custom(38))
             );
-            if !allowed_issuers.contains(&attester.as_str()) {
-                Err(Error::InvalidIssuer)
-            } else {
+            if allowed_issuers.contains(&attester.as_str()) {
                 Ok(())
+            } else {
+                Err(Error::InvalidIssuer)
             }
         }
     }
@@ -249,31 +250,39 @@ mod test {
 
     #[test]
     fn test_check_claim_contents() {
-        let credential: Credential = serde_json::from_str(EXAMPLE_CRED).unwrap();
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
         let res = credential.check_claim_contents();
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "Failed to check claim contents: {:?}", res);
     }
 
     #[test]
     fn test_check_root_hash() {
-        let credential: Credential = serde_json::from_str(EXAMPLE_CRED).unwrap();
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
         let res = credential.check_root_hash();
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "Failed to check root hash: {:?}", res);
     }
 
     #[tokio::test]
     async fn test_check_signature() {
-        let credential: Credential = serde_json::from_str(EXAMPLE_CRED).unwrap();
-        let cli = connect("wss://spiritnet.kilt.io:443").await.unwrap();
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
+        let cli = connect("wss://spiritnet.kilt.io:443")
+            .await
+            .expect("Failed to connect to kilt");
         let res = credential.check_signature(&cli).await;
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "Failed to check signature: {:?}", res);
     }
 
     #[tokio::test]
     async fn test_check_attestation() {
-        let credential: Credential = serde_json::from_str(EXAMPLE_CRED).unwrap();
-        let cli = connect("wss://spiritnet.kilt.io:443").await.unwrap();
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
+        let cli = connect("wss://spiritnet.kilt.io:443")
+            .await
+            .expect("Failed to connect to kilt");
         let res = credential.check_attestation(&cli, &ALLOWED_ISSUERS).await;
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "Failed to check attestation: {:?}", res);
     }
 }
