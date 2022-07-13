@@ -1,13 +1,14 @@
 use subxt::{ClientBuilder, Config, DefaultConfig, PolkadotExtrinsicParams};
 
-// This generates the kilt runtime api for us
+// Generate the KILT runtime API
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
 pub mod kilt {}
 
-// re-export all the auto generated code
+// Re-export all the auto generated code
 pub use kilt::*;
 
-// This is the runtime config for kilt. It only differs in the Index type from the default
+// This is the runtime config for KILT.
+// It only differs in the Index type from the default
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct KiltConfig;
 impl Config for KiltConfig {
@@ -24,19 +25,17 @@ impl Config for KiltConfig {
 
 pub type KiltRuntimeApi = kilt::RuntimeApi<KiltConfig, PolkadotExtrinsicParams<KiltConfig>>;
 
-/// connect to a websocket endpoint using the KiltConfig
+/// Connect to a websocket endpoint using the KiltConfig
 pub async fn connect<U: Into<String>>(url: U) -> Result<KiltRuntimeApi, subxt::BasicError> {
-    let api = ClientBuilder::new()
+    Ok(ClientBuilder::new()
         .set_url(url)
         .build()
         .await?
-        .to_runtime_api::<KiltRuntimeApi>();
-    Ok(api)
+        .to_runtime_api::<KiltRuntimeApi>())
 }
 
 #[cfg(test)]
 mod tests {
-
     use subxt::sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
 
     use super::*;
@@ -56,8 +55,10 @@ mod tests {
             .web3_names()
             .owner(&w3n("johndoe"), None)
             .await
-            .unwrap() // unwrap the result -> no network error
-            .unwrap(); // unwrap the owner option -> proof that it exists
+            // no network error
+            .expect("Should connect with runtime API")
+            // proof that owner exists and is johndoe
+            .expect("Should match owner with johndoe");
 
         let owner = format!(
             "did:kilt:{}",
@@ -73,6 +74,6 @@ mod tests {
         let call = kilt::web3_names::calls::Claim {
             name: BoundedVec(String::from("johndoe").as_bytes().to_vec()),
         };
-        println!("{:#?}", call);
+        println!("Call: {:#?}", call);
     }
 }
