@@ -26,12 +26,10 @@ fn get_did_parts(did: &str) -> Result<Vec<&str>, Error> {
 pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
     let did_parts = get_did_parts(did)?;
     did_parts[2]
-        .split('#')
-        .nth(0)
-        .map(|id| AccountId32::from_ss58check(id))
+        .split('#').next()
+        .map(AccountId32::from_ss58check)
         .expect("DID should contain # char")
         .map_err(|_| Error::InvalidDid)
-        .into()
 }
 
 // take a key uri string and return the key id of it
