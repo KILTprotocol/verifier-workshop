@@ -51,6 +51,32 @@ pub struct ClaimerSignature {
     pub key_id: String,
 }
 
+impl Claim {
+    pub fn normalize(&self) -> Result<Vec<String>, Error> {
+        let mut normalized = Vec::new();
+
+        // First add the owner field like `{"@id":"did:kilt:12345"}`
+        let owner_map = serde_json::json!({"@id": self.owner.clone()});
+        normalized.push(serde_json::to_string(&owner_map)?);
+
+        // Now add for every toplevel entry in the contents one object like this:
+        // `{"kilt:ctype:12345#Email":"foo@bar.com"}`
+        self.contents
+            .as_object()
+            .ok_or(Error::InvalidClaimContents)?
+            .iter()
+            .try_for_each(|(key, value)| -> Result<(), Error> {
+                let mut map = serde_json::Map::new();
+                let key = format!("kilt:ctype:{}#{}", self.ctype_hash, key);
+                map.insert(key, value.clone());
+                normalized.push(serde_json::to_string(&map)?);
+                Ok(())
+            })?;
+
+        Ok(normalized)
+    }
+}
+
 impl Credential {
     /// This will verify a credential
     pub async fn verify(
@@ -68,26 +94,7 @@ impl Credential {
     /// This will check all disclosed contents against the hashes given in the credential
     pub fn check_claim_contents(&self) -> Result<(), Error> {
         // We need to normalize the owner and the contents
-        let mut normalized_parts = vec![];
-
-        // First add the owner field like `{"@id":"did:kilt:12345"}`
-        let owner_map = serde_json::json!({"@id": self.claim.owner.clone()});
-        normalized_parts.push(serde_json::to_string(&owner_map)?);
-
-        // Now add for every toplevel entry in the contents one object like this:
-        // `{"kilt:ctype:12345#Email":"foo@bar.com"}`
-        self.claim
-            .contents
-            .as_object()
-            .ok_or(Error::InvalidClaimContents)?
-            .iter()
-            .try_for_each(|(key, value)| -> Result<(), Error> {
-                let mut map = serde_json::Map::new();
-                let key = format!("kilt:ctype:{}#{}", self.claim.ctype_hash, key);
-                map.insert(key, value.clone());
-                normalized_parts.push(serde_json::to_string(&map)?);
-                Ok(())
-            })?;
+        let normalized_parts = self.claim.normalize()?;
 
         // At this point we can calculate the hashes of the normalized statements using blake2b256
         let hashes = normalized_parts
@@ -260,6 +267,17 @@ mod test {
     const ALLOWED_ISSUERS: [&str; 1] = [
         "did:kilt:4pnfkRn5UurBJTW92d9TaVLR2CqJdY4z5HPjrEbpGyBykare", // socialkyc.io
     ];
+
+    #[test]
+    fn test_normalize_claim() {
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
+        let normalized = credential
+            .claim
+            .normalize()
+            .expect("Failed to normalize claim");
+        println!("{}", serde_json::to_string_pretty(&normalized).unwrap());
+    }
 
     #[test]
     fn test_check_claim_contents() {
