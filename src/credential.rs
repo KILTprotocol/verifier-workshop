@@ -1,13 +1,10 @@
-use blake2::{digest::consts::U32, Blake2b, Digest};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
     errors::Error,
-    utils::{hex_decode, hex_encode},
 };
 
-type Blake2b256 = Blake2b<U32>;
 
 /// Top-level structure of a credential
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -69,63 +66,6 @@ impl Claim {
     }
 }
 
-impl Credential {
-    
-    /// This will check all disclosed contents against the hashes given in the credential
-    pub fn check_claim_contents(&self) -> Result<(), Error> {
-        // We need to normalize the owner and the contents
-        let normalized_parts = self.claim.normalize()?;
-
-        // At this point we can calculate the hashes of the normalized statements using blake2b256
-        let hashes = normalized_parts
-            .iter()
-            .map(|part| -> String {
-                let mut hasher = Blake2b256::new();
-                hasher.update(part.as_str());
-                hex_encode(&hasher.finalize())
-            })
-            .collect::<Vec<String>>();
-
-        // Each of these hashes should have a corresponding nonce in the nonce map
-        // The nonce hashed together with the hash should be listed in the claim_hashes of the credential
-        hashes.iter().try_for_each(|hash| -> Result<(), Error> {
-            let nonce = self
-                .claim_nonce_map
-                .get(hash)
-                .ok_or(Error::InvalidClaimContents)?;
-            let mut hasher = Blake2b256::new();
-            hasher.update(nonce);
-            hasher.update(hash);
-            let salted_hash = hex_encode(&hasher.finalize());
-            if !self.claim_hashes.contains(&salted_hash) {
-                Err(Error::InvalidClaimContents)
-            } else {
-                Ok(())
-            }
-        })?;
-
-        // Claims are valid if we get here!
-        Ok(())
-    }
-
-    /// Hashing the claim-hashes together should result in the root hash of the credential
-    pub fn check_root_hash(&self) -> Result<(), Error> {
-        let mut hasher = Blake2b256::new();
-        for hash in self.claim_hashes.iter() {
-            let data = hex_decode(&hash)?;
-            hasher.update(&data);
-        }
-
-        let root_hash = hex_encode(&hasher.finalize());
-        if root_hash != self.root_hash {
-            Err(Error::InvalidRootHash)
-        } else {
-            Ok(())
-        }
-    }
-
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -166,22 +106,6 @@ mod test {
             .normalize()
             .expect("Failed to normalize claim");
         println!("{}", serde_json::to_string_pretty(&normalized).unwrap());
-    }
-
-    #[test]
-    fn test_check_claim_contents() {
-        let credential: Credential =
-            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
-        let res = credential.check_claim_contents();
-        assert!(res.is_ok(), "Failed to check claim contents: {:?}", res);
-    }
-
-    #[test]
-    fn test_check_root_hash() {
-        let credential: Credential =
-            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
-        let res = credential.check_root_hash();
-        assert!(res.is_ok(), "Failed to check root hash: {:?}", res);
     }
 
 }

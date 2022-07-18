@@ -4,7 +4,6 @@ pub enum Error {
     Serde(serde_json::Error),
     InvalidClaimContents,
     InvalidHex(hex::FromHexError),
-    InvalidRootHash,
 }
 
 impl std::fmt::Display for Error {
@@ -14,7 +13,6 @@ impl std::fmt::Display for Error {
             Error::Serde(err) => write!(f, "Serde error: {}", err),
             Error::InvalidClaimContents => write!(f, "Invalid claim contents"),
             Error::InvalidHex(err) => write!(f, "Invalid hex: {}", err),
-            Error::InvalidRootHash => write!(f, "Invalid root hash"),
         }
     }
 }

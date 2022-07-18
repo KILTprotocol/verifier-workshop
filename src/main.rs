@@ -7,8 +7,8 @@ use errors::Error;
 fn main() -> Result<(), Error> {
     let cred = utils::read_credential("stdin")?;
 
-    cred.check_claim_contents()?;
-    cred.check_root_hash()?;
+    println!("{:#?}", cred);
+    println!("{:#?}", cred.claim.normalize()?);
     
     Ok(())
 }
