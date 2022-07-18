@@ -4,9 +4,13 @@ use subxt::{sp_core::crypto::Ss58Codec, sp_runtime::AccountId32};
 use crate::{credential::Credential, errors::Error, kilt::runtime_types::primitive_types::H256};
 
 // read a credential from stdin
-pub fn read_credential() -> Result<Credential, Error> {
+pub fn read_credential(file: &str) -> Result<Credential, Error> {
     let mut s = String::new();
-    std::io::stdin().read_to_string(&mut s)?;
+    if file == "stdin" {
+        std::io::stdin().read_to_string(&mut s)?;
+    } else {
+        s = std::fs::read_to_string(file)?;
+    }
     let claim = serde_json::from_str(s.as_str())?;
     Ok(claim)
 }
@@ -28,8 +32,8 @@ pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
     did_parts[2]
         .split('#')
         .next()
-        .map(AccountId32::from_ss58check)
-        .expect("did should be non empty")
+        .ok_or(Error::InvalidDid)
+        .map(AccountId32::from_ss58check)?
         .map_err(|_| Error::InvalidDid)
 }
 
@@ -63,7 +67,9 @@ pub fn hex_decode<T>(data: T) -> Result<Vec<u8>, Error>
 where
     T: ToString,
 {
-    Ok(hex::decode(data.to_string().trim_start_matches("0x"))?.to_vec())
+    let s = data.to_string();
+    let normalized = s.trim().trim_start_matches("0x");
+    Ok(hex::decode(normalized)?.to_vec())
 }
 
 #[cfg(test)]
@@ -112,5 +118,63 @@ mod test {
             )
             .0
         );
+    }
+
+    #[test]
+    fn test_hex_encode() {
+        let data = vec![0x12, 0x34, 0x56, 0x78];
+        let hex_data = hex_encode(data);
+        assert_eq!(hex_data, "0x12345678");
+    }
+
+    #[test]
+    fn test_hex_decode() {
+        let cases = vec![
+            (
+                "parse with 0x prefix",
+                "0x12345678",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse without 0x prefix",
+                "12345678",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse with 0x prefix and trailing whitespace",
+                "0x12345678  ",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse without 0x prefix and trailing whitespace",
+                "12345678  ",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse with 0x prefix and leading whitespace",
+                "  0x12345678",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse without 0x prefix and leading whitespace",
+                "  12345678",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse with 0x prefix and leading and trailing whitespace",
+                "  0x12345678  ",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+            (
+                "parse without 0x prefix and leading and trailing whitespace",
+                "  12345678  ",
+                vec![0x12, 0x34, 0x56, 0x78],
+            ),
+        ];
+
+        for (_name, hex_data, expected) in cases {
+            let data = hex_decode(hex_data).unwrap();
+            assert_eq!(data, expected);
+        }
     }
 }

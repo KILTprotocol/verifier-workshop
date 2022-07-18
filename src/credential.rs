@@ -52,6 +52,19 @@ pub struct ClaimerSignature {
 }
 
 impl Credential {
+    /// This will verify a credential
+    pub async fn verify(
+        &self,
+        cli: &KiltRuntimeApi,
+        allowed_issuers: &[&str],
+    ) -> Result<(), Error> {
+        self.check_claim_contents()?;
+        self.check_root_hash()?;
+        self.check_signature(cli).await?;
+        self.check_attestation(cli, allowed_issuers).await?;
+        Ok(())
+    }
+
     /// This will check all disclosed contents against the hashes given in the credential
     pub fn check_claim_contents(&self) -> Result<(), Error> {
         // We need to normalize the owner and the contents
@@ -284,5 +297,16 @@ mod test {
             .expect("Failed to connect to kilt");
         let res = credential.check_attestation(&cli, &ALLOWED_ISSUERS).await;
         assert!(res.is_ok(), "Failed to check attestation: {:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_verify() {
+        let credential: Credential =
+            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
+        let cli = connect("wss://spiritnet.kilt.io:443")
+            .await
+            .expect("Failed to connect to kilt");
+        let res = credential.verify(&cli, &ALLOWED_ISSUERS).await;
+        assert!(res.is_ok(), "Failed to verify: {:?}", res);
     }
 }
