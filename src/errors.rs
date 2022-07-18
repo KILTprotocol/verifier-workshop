@@ -9,9 +9,6 @@ pub enum Error {
     InvalidDid,
     DidNotFound,
     InvalidSignature,
-    AttestationNotFound,
-    AttestationRevoked,
-    InvalidIssuer,
 }
 
 impl std::fmt::Display for Error {
@@ -26,9 +23,6 @@ impl std::fmt::Display for Error {
             Error::InvalidDid => write!(f, "Invalid DID"),
             Error::DidNotFound => write!(f, "DID not found"),
             Error::InvalidSignature => write!(f, "Invalid signature"),
-            Error::AttestationNotFound => write!(f, "Attestation not found"),
-            Error::AttestationRevoked => write!(f, "Attestation revoked"),
-            Error::InvalidIssuer => write!(f, "Invalid issuer"),
         }
     }
 }

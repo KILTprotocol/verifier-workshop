@@ -1,6 +1,5 @@
 use blake2::{digest::consts::U32, Blake2b, Digest};
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
 use std::collections::HashMap;
 use subxt::sp_runtime::app_crypto::RuntimePublic;
 
@@ -175,48 +174,6 @@ impl Credential {
         }
     }
 
-    /// Finally we need to check if the root hash is ok:
-    /// - it's written to chain
-    /// - the attestation is not revoked
-    /// - we trust the attester
-    pub async fn check_attestation(
-        &self,
-        cli: &KiltRuntimeApi,
-        allowed_issuers: &[&str],
-    ) -> Result<(), Error> {
-        // Get the raw root hash
-        let hash = subxt::sp_core::H256(
-            hex_decode(&self.root_hash)?
-                .try_into()
-                .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
-        );
-
-        // Retrieve the attestation from chain
-        let attestation = cli
-            .storage()
-            .attestation()
-            .attestations(&hash, None)
-            .await?
-            .ok_or(Error::AttestationNotFound)?;
-
-        // Check if it has been revoked by the issuer
-        if attestation.revoked {
-            Err(Error::AttestationRevoked)
-        } else {
-            // Build the attester DID string to check against the allowed issuers
-            let attester = format!(
-                "did:kilt:{}",
-                attestation
-                    .attester
-                    .to_ss58check_with_version(Ss58AddressFormat::custom(38))
-            );
-            if allowed_issuers.contains(&attester.as_str()) {
-                Ok(())
-            } else {
-                Err(Error::InvalidIssuer)
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -251,10 +208,6 @@ mod test {
         }
     }
     "#;
-
-    const ALLOWED_ISSUERS: [&str; 1] = [
-        "did:kilt:4pnfkRn5UurBJTW92d9TaVLR2CqJdY4z5HPjrEbpGyBykare", // socialkyc.io
-    ];
 
     #[test]
     fn test_normalize_claim() {
@@ -292,17 +245,6 @@ mod test {
             .expect("Failed to connect to kilt");
         let res = credential.check_signature(&cli).await;
         assert!(res.is_ok(), "Failed to check signature: {:?}", res);
-    }
-
-    #[tokio::test]
-    async fn test_check_attestation() {
-        let credential: Credential =
-            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
-        let cli = connect("wss://spiritnet.kilt.io:443")
-            .await
-            .expect("Failed to connect to kilt");
-        let res = credential.check_attestation(&cli, &ALLOWED_ISSUERS).await;
-        assert!(res.is_ok(), "Failed to check attestation: {:?}", res);
     }
 
 }
