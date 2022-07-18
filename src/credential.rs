@@ -1,17 +1,10 @@
 use blake2::{digest::consts::U32, Blake2b, Digest};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use subxt::sp_runtime::app_crypto::RuntimePublic;
 
 use crate::{
     errors::Error,
-    kilt::{
-        runtime_types::did::did_details::{
-            DidPublicKey::PublicVerificationKey, DidVerificationKey,
-        },
-        KiltRuntimeApi,
-    },
-    utils::{get_did_account_id, get_did_key_id, hex_decode, hex_encode},
+    utils::{hex_decode, hex_encode},
 };
 
 type Blake2b256 = Blake2b<U32>;
@@ -131,55 +124,10 @@ impl Credential {
         }
     }
 
-    /// The signature of the credential is checked against the public key of the owner
-    pub async fn check_signature(&self, cli: &KiltRuntimeApi) -> Result<(), Error> {
-        let owner = get_did_account_id(self.claim.owner.as_str())?;
-
-        // Lookup DID doc on chain
-        let did_doc = cli
-            .storage()
-            .did()
-            .did(&owner, None)
-            .await?
-            .ok_or(Error::DidNotFound)?;
-
-        // Get the public verification key of the owner from the DID doc
-        let did_key_id = get_did_key_id(&self.claimer_signature.key_id)?;
-        let details = &did_doc
-            .public_keys
-            .0
-            .iter()
-            .find(|(key, _)| key.0 == did_key_id.0)
-            .ok_or(Error::InvalidDid)?
-            .1;
-
-        // Make sure the public key is a sr25519 public verification key and check the signature
-        match &details.key {
-            PublicVerificationKey(DidVerificationKey::Sr25519(key)) => {
-                let pub_key = subxt::sp_core::sr25519::Public::from_raw(key.0);
-                let sig = subxt::sp_core::sr25519::Signature::from_raw(
-                    hex_decode(&self.claimer_signature.signature)?
-                        .try_into()
-                        .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
-                );
-                let msg = hex_decode(&self.root_hash)?;
-
-                if pub_key.verify(&msg, &sig) {
-                    Ok(())
-                } else {
-                    Err(Error::InvalidSignature)
-                }
-            }
-            _ => Err(Error::InvalidDid),
-        }
-    }
-
 }
 
 #[cfg(test)]
 mod test {
-    use crate::kilt::connect;
-
     use super::*;
 
     const EXAMPLE_CRED: &str = r#"
@@ -234,17 +182,6 @@ mod test {
             serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
         let res = credential.check_root_hash();
         assert!(res.is_ok(), "Failed to check root hash: {:?}", res);
-    }
-
-    #[tokio::test]
-    async fn test_check_signature() {
-        let credential: Credential =
-            serde_json::from_str(EXAMPLE_CRED).expect("Failed to parse claims");
-        let cli = connect("wss://spiritnet.kilt.io:443")
-            .await
-            .expect("Failed to connect to kilt");
-        let res = credential.check_signature(&cli).await;
-        assert!(res.is_ok(), "Failed to check signature: {:?}", res);
     }
 
 }

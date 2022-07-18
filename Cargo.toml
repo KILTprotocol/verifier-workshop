@@ -10,12 +10,3 @@ serde ={ version = "1.0", features = ["derive"] }
 serde_json = "1"
 blake2 = "0.10"
 hex = "0.4"
-
-subxt = "0.22"
-codec = { package = "parity-scale-codec", version = "3", default-features = false, features = [
-    "derive",
-    "full",
-    "bit-vec",
-] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
-sp-core = "*"

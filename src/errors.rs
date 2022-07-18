@@ -5,10 +5,6 @@ pub enum Error {
     InvalidClaimContents,
     InvalidHex(hex::FromHexError),
     InvalidRootHash,
-    ConnectionError(subxt::BasicError),
-    InvalidDid,
-    DidNotFound,
-    InvalidSignature,
 }
 
 impl std::fmt::Display for Error {
@@ -19,10 +15,6 @@ impl std::fmt::Display for Error {
             Error::InvalidClaimContents => write!(f, "Invalid claim contents"),
             Error::InvalidHex(err) => write!(f, "Invalid hex: {}", err),
             Error::InvalidRootHash => write!(f, "Invalid root hash"),
-            Error::ConnectionError(err) => write!(f, "Connection error: {}", err),
-            Error::InvalidDid => write!(f, "Invalid DID"),
-            Error::DidNotFound => write!(f, "DID not found"),
-            Error::InvalidSignature => write!(f, "Invalid signature"),
         }
     }
 }
@@ -42,11 +34,5 @@ impl From<serde_json::Error> for Error {
 impl From<hex::FromHexError> for Error {
     fn from(err: hex::FromHexError) -> Self {
         Error::InvalidHex(err)
-    }
-}
-
-impl From<subxt::BasicError> for Error {
-    fn from(err: subxt::BasicError) -> Self {
-        Error::ConnectionError(err)
     }
 }
