@@ -11,9 +11,11 @@ use kilt::connect;
 
 mod credential;
 
-const ALLOWED_ISSUERS: [&str; 1] = [
+const ALLOWED_ISSUERS: [&str; 2] = [
     // socialkyc.io
     "did:kilt:4pnfkRn5UurBJTW92d9TaVLR2CqJdY4z5HPjrEbpGyBykare",
+    // logion
+    "did:kilt:4pvWYQi953KFwPoCo9qaneoBGSCAdWxME9y4BapKaFXiiuWf",
 ];
 
 /// Command line tool to verify KILT credentials
@@ -27,6 +29,16 @@ struct Args {
     /// Use verbose output
     #[clap(short, long, value_parser, default_value_t = false)]
     verbose: bool,
+
+    /// kilt node endpoint
+    /// testnet: wss://peregrine.kilt.io:443/parachain-public-ws
+    #[clap(
+        short,
+        long,
+        value_parser,
+        default_value = "wss://spiritnet.kilt.io:443"
+    )]
+    endpoint: String,
 }
 
 #[tokio::main]
@@ -35,7 +47,7 @@ async fn main() -> Result<(), Error> {
     let args = Args::parse();
 
     // Connect to chain
-    let cli = connect("wss://spiritnet.kilt.io:443").await?;
+    let cli = connect(&args.endpoint).await?;
 
     // Read credential from stdin
     let cred = read_credential(&args.file)?;

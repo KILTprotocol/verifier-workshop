@@ -39,7 +39,7 @@ pub fn get_did_account_id(did: &str) -> Result<AccountId32, Error> {
 
 // take a key uri string and return the key id of it
 // i.e. "did:kilt:1234#0x05060708" -> [5,6,7,8]
-pub fn get_did_key_id(did: &str) -> Result<H256, Error> {
+pub fn get_did_key_uri(did: &str) -> Result<H256, Error> {
     let did_parts = get_did_parts(did)?;
 
     let parts: Vec<&str> = did_parts[2].split('#').collect();
@@ -105,9 +105,9 @@ mod test {
     }
 
     #[test]
-    fn test_get_did_key_id() {
+    fn test_get_did_key_uri() {
         let did = "did:kilt:4siDmerNEBREZJsFoLM95x6cxEho73bCWKEDAXrKdou4a3mH#0x78579576fa15684e5d868c9e123d62d471f1a95d8f9fc8032179d3735069784d";
-        let key_id = get_did_key_id(did).unwrap();
+        let key_id = get_did_key_uri(did).unwrap();
         assert_eq!(
             key_id.0,
             H256(

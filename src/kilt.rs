@@ -1,7 +1,7 @@
 use subxt::{ClientBuilder, Config, DefaultConfig, PolkadotExtrinsicParams};
 
 // Generate the KILT runtime API
-#[subxt::subxt(runtime_metadata_path = "metadata.scale")]
+#[subxt::subxt(runtime_metadata_path = "metadata-spiritnet.scale")]
 pub mod kilt {}
 
 // Re-export all the auto generated code

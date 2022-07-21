@@ -1,0 +1,31 @@
+{
+    "claim": {
+        "cTypeHash": "0x7d461b42eadba9481ae53f629420eb12f090631bf2bb8ec3d4b349b72edf87c4",
+        "contents": {
+            "requesterAccountId": "5EBxoSssqNo23FvsDeUxjyQScnfEiGxJaNwuwqBH2Twe35BX",
+            "identityLocId": "7700138005856552247019432261836212829",
+            "legalOfficerAccountId": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+        },
+        "owner": "did:kilt:4oerV7bHp2H6Y5MvKaVGPwT1RBMFfLdJmFdqoSxjxoJmQnpf"
+    },
+    "claimHashes": [
+        "0x78020091cbbadc131a7ac06f2de0ef3e1f7eceae89df66233a7eb01747bbd172",
+        "0xa430a0d68b6f33a334c43e3aba3e4ea03df278570b4ad33cb8d028a6bec34512",
+        "0xc9de324cd90563699b9f983e43c70ce988d0c38aaf2632c8031ed2bcaad952fa",
+        "0xf76ca141f99239b512111810ace4d9843d8529a1db27b631286a9c3b44ff43b1"
+    ],
+    "claimNonceMap": {
+        "0xff0e7bd8da0ac7a29f9c2d5c57b231d6660f6aa139303f5e6fbf5dd92aa67229": "7ed04098-2ad2-42fa-b09f-3f7fdfb186c8",
+        "0x9f627905c4f59a81849bbf90de4530a6d532fa307946821c15488c13373c95df": "0158a402-bb37-4d3d-8e92-5823f9bffef9",
+        "0x2ad22cf64569d446896caf4232a8ec980493fe47d1b3c7a32083dc421de30fcb": "6cd4aa7b-e25a-486d-9d95-848515bf41c8",
+        "0x4e5e3452aba51e3ed0c8305618f8f6e51ba0e1bf24a1469ce0654fcd4e666638": "6a457302-7e8c-4317-b64e-3c820decaa9f"
+    },
+    "legitimations": [],
+    "delegationId": null,
+    "rootHash": "0xcec0cd62740ec6b006305be8533de34f214b31611b2b1443d972c94622fc258e",
+    "claimerSignature": {
+        "signature": "0x8c9c5d5743131db88a04da106a2a7b00114d2c8a6c85e3f11f883dd324bbfb3c51f858db9c9a1acca9e0cd73b50e8e7d7818bf8292dbc56f25bc13a40997298e",
+        "keyUri": "did:kilt:4oerV7bHp2H6Y5MvKaVGPwT1RBMFfLdJmFdqoSxjxoJmQnpf#0x0654061cbc39ac212a1ec3f51c93eb5f39d354232ea618b688a87c7885446acd",
+        "challenge": "ParisDotComm"
+    }
+}

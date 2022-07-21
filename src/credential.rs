@@ -13,7 +13,7 @@ use crate::{
         },
         KiltRuntimeApi,
     },
-    utils::{get_did_account_id, get_did_key_id, hex_decode, hex_encode},
+    utils::{get_did_account_id, get_did_key_uri, hex_decode, hex_encode},
 };
 
 type Blake2b256 = Blake2b<U32>;
@@ -48,8 +48,9 @@ pub struct Claim {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ClaimerSignature {
     pub signature: String,
-    #[serde(rename = "keyId")]
-    pub key_id: String,
+    pub challenge: String,
+    #[serde(rename = "keyUri")]
+    pub key_uri: String,
 }
 
 impl Claim {
@@ -68,7 +69,7 @@ impl Claim {
             .iter()
             .try_for_each(|(key, value)| -> Result<(), Error> {
                 let key = format!("kilt:ctype:{}#{}", self.ctype_hash, key);
-                normalized.push(serde_json::to_string(&json!({key: value}))?);
+                normalized.push(serde_json::to_string(&json!({ key: value }))?);
                 Ok(())
             })?;
 
@@ -156,12 +157,12 @@ impl Credential {
             .ok_or(Error::DidNotFound)?;
 
         // Get the public verification key of the owner from the DID doc
-        let did_key_id = get_did_key_id(&self.claimer_signature.key_id)?;
+        let did_key_uri = get_did_key_uri(&self.claimer_signature.key_uri)?;
         let details = &did_doc
             .public_keys
             .0
             .iter()
-            .find(|(key, _)| key.0 == did_key_id.0)
+            .find(|(key, _)| key.0 == did_key_uri.0)
             .ok_or(Error::InvalidDid)?
             .1;
 
@@ -174,7 +175,10 @@ impl Credential {
                         .try_into()
                         .map_err(|_| Error::InvalidHex(hex::FromHexError::OddLength))?,
                 );
-                let msg = hex_decode(&self.root_hash)?;
+
+                let mut msg = hex_decode(&self.root_hash)?;
+                let mut challenge = self.claimer_signature.challenge.as_bytes().to_vec();
+                msg.append(&mut challenge);
 
                 if pub_key.verify(&msg, &sig) {
                     Ok(())
