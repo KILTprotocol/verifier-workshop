@@ -1,5 +1,6 @@
 use blake2::{digest::consts::U32, Blake2b, Digest};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
 use std::collections::HashMap;
 use subxt::sp_runtime::app_crypto::RuntimePublic;
@@ -66,10 +67,8 @@ impl Claim {
             .ok_or(Error::InvalidClaimContents)?
             .iter()
             .try_for_each(|(key, value)| -> Result<(), Error> {
-                let mut map = serde_json::Map::new();
                 let key = format!("kilt:ctype:{}#{}", self.ctype_hash, key);
-                map.insert(key, value.clone());
-                normalized.push(serde_json::to_string(&map)?);
+                normalized.push(serde_json::to_string(&json!({key: value}))?);
                 Ok(())
             })?;
 
